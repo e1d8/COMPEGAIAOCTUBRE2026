@@ -1,8 +1,14 @@
-// Copia ací la mateixa URL /exec de Google Apps Script que utilitza el formulari.
-const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_6xXSPIx5A1duDRSo-9iMPRQKQ3JSD5WjF5tFKZH_J6jxMwpqHGpRvrV-N4zFnCcw/exec';
+// La mateixa configuració pública i col·lecció que utilitza el formulari.
+const firebaseConfig = {
+  apiKey: 'AIzaSyAvXaeDAdu3R_Yufb-CjwEypjjJR_xcvcc',
+  authDomain: 'compe-gaia-octubre-2026.firebaseapp.com',
+  projectId: 'compe-gaia-octubre-2026',
+  storageBucket: 'compe-gaia-octubre-2026.firebasestorage.app',
+  messagingSenderId: '575564173083',
+  appId: '1:575564173083:web:76820b5d7287db51fe4dbe'
+};
 
 const RESULTATS_PER_PAGINA = 5;
-const TEMPS_MAXIM_CARREGA = 60000;
 const DURACIO_RECOMPTE = 900;
 const DURACIO_FILA_RANQUING = 320;
 const INTERVAL_FILA_RANQUING = 100;
@@ -52,6 +58,8 @@ const formatEnter = new Intl.NumberFormat('ca-ES', { maximumFractionDigits: 0 })
 const ordenaNoms = new Intl.Collator('ca-ES', { sensitivity: 'base', numeric: true });
 
 let resultats = [];
+let firebaseClientPromise = null;
+let carregant = false;
 let categoriaActual = 'General';
 let paginaRanquingActual = 0;
 let paginaGraficActual = 0;
@@ -65,6 +73,8 @@ let versioAnimacioRanquing = 0;
 function normalitzaResultat(fila) {
   const resultat = {
     id: String(fila.id ?? ''),
+    dorsal: String(fila.dorsal ?? fila.id ?? ''),
+    anonimo: fila.anonimo === true,
     nombre: String(fila.nombre ?? ''),
     genero: String(fila.genero ?? ''),
     total: Number(fila.total) || 0
@@ -76,31 +86,26 @@ function normalitzaResultat(fila) {
 }
 
 async function lligResultats() {
-  if (!GOOGLE_APPS_SCRIPT_URL || !GOOGLE_APPS_SCRIPT_URL.endsWith('/exec')) {
-    throw new Error('Falta configurar l’URL de Google Apps Script.');
-  }
-
-  const controller = new AbortController();
-  const temporitzador = setTimeout(() => controller.abort(), TEMPS_MAXIM_CARREGA);
-
-  try {
-    const endpoint = new URL(GOOGLE_APPS_SCRIPT_URL);
-    endpoint.searchParams.set('action', 'resultats');
-    endpoint.searchParams.set('_', String(Date.now()));
-    const resposta = await fetch(endpoint, {
-      cache: 'no-store',
-      redirect: 'follow',
-      signal: controller.signal
+  if (navigator.onLine === false) throw new TypeError('Sense connexió.');
+  if (!firebaseClientPromise) {
+    firebaseClientPromise = Promise.all([
+      import('https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js'),
+      import('https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore-lite.js')
+    ]).then(([appSdk, firestoreSdk]) => {
+      const app = appSdk.initializeApp(firebaseConfig);
+      return { ...firestoreSdk, db: firestoreSdk.getFirestore(app) };
+    }).catch(error => {
+      firebaseClientPromise = null;
+      throw error;
     });
-    if (!resposta.ok) throw new Error(`El servidor ha respost amb l’estat ${resposta.status}.`);
-    const dades = await resposta.json().catch(() => null);
-    if (!dades || dades.ok !== true || !Array.isArray(dades.resultats)) {
-      throw new Error(dades?.message || 'Google Apps Script ha retornat una resposta inesperada.');
-    }
-    return dades.resultats.map(normalitzaResultat);
-  } finally {
-    clearTimeout(temporitzador);
   }
+
+  const { db, collection, getDocs } = await firebaseClientPromise;
+  const consulta = await getDocs(collection(db, 'resultados'));
+  return consulta.docs.map(document => normalitzaResultat({
+    ...document.data(),
+    id: document.id
+  }));
 }
 
 function filtraCategoria(categoria) {
@@ -540,13 +545,28 @@ function mostraError(error) {
   elements.estatCarrega.removeAttribute('aria-busy');
   elements.indicadorCarrega.hidden = true;
   elements.textEstat.classList.remove('visually-hidden');
-  elements.textEstat.textContent = error.name === 'AbortError'
-    ? 'La connexió ha tardat massa. Torna-ho a provar.'
-    : 'No s’han pogut carregar els resultats. Comprova la connexió i torna-ho a provar.';
+  switch (error?.code) {
+    case 'permission-denied':
+      elements.textEstat.textContent = 'No es poden consultar els resultats. Avisa l’organització perquè revise els permisos.';
+      break;
+    case 'resource-exhausted':
+      elements.textEstat.textContent = 'S’ha arribat al límit d’ús de la base de dades. Avisa l’organització.';
+      break;
+    case 'invalid-argument':
+    case 'failed-precondition':
+    case 'not-found':
+    case 'app/invalid-api-key':
+      elements.textEstat.textContent = 'No s’ha pogut accedir a la base de dades. Avisa l’organització perquè revise la configuració.';
+      break;
+    default:
+      elements.textEstat.textContent = 'No s’han pogut carregar els resultats. Comprova la connexió i torna-ho a provar.';
+  }
   elements.reintentar.hidden = false;
 }
 
 async function carrega() {
+  if (carregant) return;
+  carregant = true;
   mostraCarrega();
   try {
     resultats = await lligResultats();
@@ -558,6 +578,8 @@ async function carrega() {
     elements.contingut.hidden = false;
   } catch (error) {
     mostraError(error);
+  } finally {
+    carregant = false;
   }
 }
 
