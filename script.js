@@ -51,7 +51,8 @@ const elements = {
 function creaEstatGrafic(sufix, titol, unitat) {
   return {
     titol, unitat,
-    esIntents: sufix === '-intents',
+    esIntents: sufix !== '',
+    esMitjana: sufix === '-mitjana-intents',
     pagina: 0,
     versioAnimacio: 0,
     observador: null,
@@ -67,9 +68,11 @@ function creaEstatGrafic(sufix, titol, unitat) {
 
 const graficPuntuacio = creaEstatGrafic('', 'Puntuació per bloc', 'participants');
 const graficIntents = creaEstatGrafic('-intents', 'Intents per bloc', 'intents');
-const grafics = [graficPuntuacio, graficIntents];
+const graficMitjanaIntents = creaEstatGrafic('-mitjana-intents', 'Mitja d’intents per bloc', 'intents de mitja');
+const grafics = [graficPuntuacio, graficIntents, graficMitjanaIntents];
 
 const formatEnter = new Intl.NumberFormat('ca-ES', { maximumFractionDigits: 0 });
+const formatMitjana = new Intl.NumberFormat('ca-ES', { maximumFractionDigits: 1 });
 const ordenaNoms = new Intl.Collator('ca-ES', { sensitivity: 'base', numeric: true });
 
 let resultats = [];
@@ -129,20 +132,43 @@ function filtraCategoria(categoria) {
   return resultats.filter(resultat => resultat.genero === categoria);
 }
 
-function calculaRanquing(categoria) {
-  const ordenats = filtraCategoria(categoria).sort((a, b) =>
-    b.total - a.total ||
-    ordenaNoms.compare(a.nombre, b.nombre) ||
-    a.id.localeCompare(b.id)
-  );
+function calculaIntentsDesempat(resultat) {
+  let intents = 0;
+  for (const [index, problema] of PROBLEMES.entries()) {
+    const punts = resultat[problema.camp];
+    if (punts !== problema.zona && punts !== problema.top) continue;
+    // Les dades desconegudes no equivalen a zero intents.
+    if (resultat.intentos[index] === null) return null;
+    intents += resultat.intentos[index];
+  }
+  return intents;
+}
 
-  let puntuacioAnterior = null;
+function comparaIntentsDesempat(a, b) {
+  if (a === b) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return a - b;
+}
+
+function calculaRanquing(categoria) {
+  const ordenats = filtraCategoria(categoria)
+    .map(resultat => ({ ...resultat, intentsDesempat: calculaIntentsDesempat(resultat) }))
+    .sort((a, b) =>
+      b.total - a.total ||
+      comparaIntentsDesempat(a.intentsDesempat, b.intentsDesempat) ||
+      ordenaNoms.compare(a.nombre, b.nombre) ||
+      a.id.localeCompare(b.id)
+    );
+
+  let anterior = null;
   let posicio = 0;
   return ordenats.map(resultat => {
-    if (puntuacioAnterior === null || resultat.total !== puntuacioAnterior) {
+    if (anterior === null || resultat.total !== anterior.total ||
+        resultat.intentsDesempat !== anterior.intentsDesempat) {
       posicio += 1;
-      puntuacioAnterior = resultat.total;
     }
+    anterior = resultat;
     return { ...resultat, posicio };
   });
 }
@@ -324,28 +350,38 @@ function calculaProblema(problema) {
 }
 
 function calculaIntentsProblema(problema, index) {
-  let zones = 0;
-  let tops = 0;
-  let sensePuntuacio = 0;
+  const sumes = { zones: 0, tops: 0, sensePuntuacio: 0 };
+  const mostres = { zones: 0, tops: 0, sensePuntuacio: 0 };
   for (const resultat of resultats) {
     const intents = resultat.intentos[index];
     if (intents === null) continue;
     const puntuacio = resultat[problema.camp];
-    if (puntuacio === problema.top) tops += intents;
-    else if (puntuacio === problema.zona) zones += intents;
-    else if (puntuacio === 0) sensePuntuacio += intents;
+    const grup = puntuacio === problema.top ? 'tops'
+      : puntuacio === problema.zona ? 'zones'
+      : puntuacio === 0 ? 'sensePuntuacio' : null;
+    if (grup === null) continue;
+    sumes[grup] += intents;
+    mostres[grup] += 1;
   }
-  return { ...problema, zones, tops, sensePuntuacio, total: zones + tops + sensePuntuacio };
+  return { ...problema, ...sumes, mostres, total: sumes.zones + sumes.tops + sumes.sensePuntuacio };
+}
+
+function calculaMitjanaIntentsProblema(problema, index) {
+  const dades = calculaIntentsProblema(problema, index);
+  const mitjanes = {};
+  for (const grup of ['tops', 'zones', 'sensePuntuacio']) {
+    mitjanes[grup] = dades.mostres[grup] > 0 ? dades[grup] / dades.mostres[grup] : null;
+  }
+  return { ...problema, ...mitjanes, mostres: dades.mostres };
 }
 
 function actualitzaEstatIntents() {
-  const estat = document.getElementById('estat-intents');
-  const disponibles = resultats.reduce((total, resultat) =>
-    total + resultat.intentos.filter(valor => valor !== null).length, 0);
-  estat.textContent = disponibles === 0
-    ? 'Encara no hi ha dades d’intents.'
-    : '';
-  estat.hidden = !estat.textContent;
+  const disponibles = resultats.some(resultat => resultat.intentos.some(valor => valor !== null));
+  for (const id of ['estat-intents', 'estat-mitjana-intents']) {
+    const estat = document.getElementById(id);
+    estat.textContent = disponibles ? '' : 'Encara no hi ha dades d’intents.';
+    estat.hidden = disponibles;
+  }
 }
 
 function animaBarresGrafic(estat) {
@@ -398,7 +434,7 @@ function creaBarra(dades, maxim, esIntents = false) {
   item.setAttribute(
     'aria-label',
     esIntents
-      ? `${dades.etiqueta}: intents mínims registrats. Top: ${dades.tops}, Zona: ${dades.zones}, Sense puntuació: ${dades.sensePuntuacio}. Total: ${dades.total} intents.`
+      ? `${dades.etiqueta}: intents mínims registrats. Top: ${dades.tops}, Zona: ${dades.zones}, No puntuat: ${dades.sensePuntuacio}. Total: ${dades.total} intents.`
       : `${dades.etiqueta}: ${dades.zones} en zona, ${dades.tops} en top, ${dades.total} en total.`
   );
 
@@ -421,7 +457,7 @@ function creaBarra(dades, maxim, esIntents = false) {
     { nom: 'Top', classe: 'top', valor: dades.tops },
     { nom: 'Zona', classe: 'zona', valor: dades.zones }
   ];
-  if (esIntents) segments.push({ nom: 'Sense puntuació', classe: 'sense', valor: dades.sensePuntuacio });
+  if (esIntents) segments.push({ nom: 'No puntuat', classe: 'sense', valor: dades.sensePuntuacio });
   for (const dadesSegment of segments) {
     if (dadesSegment.valor === 0) continue;
     const segment = document.createElement('button');
@@ -448,19 +484,70 @@ function creaBarra(dades, maxim, esIntents = false) {
   return item;
 }
 
+function creaBarraMitjanes(dades, maxim) {
+  const grups = [
+    { camp: 'tops', nom: 'Top', classe: 'top' },
+    { camp: 'zones', nom: 'Zona', classe: 'zona' },
+    { camp: 'sensePuntuacio', nom: 'No puntuat', classe: 'sense' }
+  ];
+  const item = document.createElement('div');
+  item.className = 'barra-item';
+  item.setAttribute('role', 'listitem');
+  item.setAttribute('aria-label', `${dades.etiqueta}. ` + grups.map(grup => {
+    const valor = dades[grup.camp];
+    return `${grup.nom}: ${valor === null ? 'sense dades' : formatMitjana.format(valor) + ' intents de mitja'}`;
+  }).join('. ') + '.');
+  const area = document.createElement('div');
+  area.className = 'barra-area';
+  const escala = document.createElement('div');
+  escala.className = 'barra-escala barres-mitjanes';
+  for (const grup of grups) {
+    const valor = dades[grup.camp];
+    // Manté el lloc de cada sèrie encara que un bloc no tinga eixe resultat.
+    const espai = document.createElement('div');
+    espai.className = 'espai-mitjana';
+    if (valor !== null && valor > 0) {
+      const barra = document.createElement('button');
+      barra.type = 'button';
+      barra.className = `segment segment-intents-${grup.classe} barra-mitjana`;
+      barra.style.setProperty('--altura-mitjana', `${maxim > 0 ? valor / maxim * 100 : 0}%`);
+      const quantitat = dades.mostres[grup.camp];
+      barra.setAttribute('aria-label', `${dades.etiqueta}, ${grup.nom}: ${formatMitjana.format(valor)} intents de mitja, ${quantitat} ${quantitat === 1 ? 'participant' : 'participants'}`);
+      const text = document.createElement('span');
+      text.className = 'valor-segment';
+      text.textContent = formatMitjana.format(valor);
+      barra.append(text);
+      espai.append(barra);
+    }
+    escala.append(espai);
+  }
+  area.append(escala);
+  const etiqueta = document.createElement('span');
+  etiqueta.className = 'etiqueta-barra';
+  etiqueta.textContent = dades.etiqueta;
+  item.append(area, etiqueta);
+  return item;
+}
+
 function renderitzaGrafic(anuncia = false, estat = graficPuntuacio) {
-  const dades = PROBLEMES.map((problema, index) => estat.esIntents
-    ? calculaIntentsProblema(problema, index) : calculaProblema(problema));
-  const maxim = estat.esIntents ? Math.max(0, ...dades.map(bloc => bloc.total)) : resultats.length;
+  const dades = PROBLEMES.map((problema, index) => estat.esMitjana
+    ? calculaMitjanaIntentsProblema(problema, index)
+    : estat.esIntents ? calculaIntentsProblema(problema, index) : calculaProblema(problema));
+  const maxim = estat.esMitjana
+    ? Math.ceil(Math.max(0, ...dades.flatMap(bloc => [bloc.tops ?? 0, bloc.zones ?? 0, bloc.sensePuntuacio ?? 0])) * 10) / 10
+    : estat.esIntents ? Math.max(0, ...dades.map(bloc => bloc.total)) : resultats.length;
   const pagina = dades.slice(estat.pagina * 4, estat.pagina * 4 + 4);
-  estat.grafic.replaceChildren(...pagina.map(bloc => creaBarra(bloc, maxim, estat.esIntents)));
-  estat.maximEscala.textContent = String(maxim);
+  estat.grafic.replaceChildren(...pagina.map(bloc => estat.esMitjana
+    ? creaBarraMitjanes(bloc, maxim) : creaBarra(bloc, maxim, estat.esIntents)));
+  estat.maximEscala.textContent = estat.esMitjana ? formatMitjana.format(maxim) : String(maxim);
   estat.indicador.textContent = `${estat.pagina + 1}/${PAGINES_GRAFIC.length}`;
   estat.indicador.setAttribute('aria-label', `Pàgina ${estat.pagina + 1} de ${PAGINES_GRAFIC.length}`);
   estat.anterior.disabled = estat.pagina === 0;
   estat.seguent.disabled = estat.pagina === PAGINES_GRAFIC.length - 1;
+  const tipus = estat.esMitjana ? 'agrupades' : 'apilades';
   estat.descripcio.textContent =
-    `Gràfic de barres apilades, amb una escala comuna de 0 a ${maxim} ${estat.unitat}. ` +
+    `Gràfic de barres ${tipus}, amb una escala comuna de 0 a ${estat.maximEscala.textContent} ${estat.unitat}. ` +
+    (estat.esMitjana ? 'La mitja es calcula entre els participants de cada resultat. ' : '') +
     `Pàgina ${estat.pagina + 1} de ${PAGINES_GRAFIC.length}.`;
 
   if (anuncia) {

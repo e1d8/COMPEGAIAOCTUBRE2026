@@ -555,6 +555,7 @@ tbody tr:last-child td {
 .barra-item {
   display: grid;
   grid-template-rows: 220px auto;
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   text-align: center;
 }
@@ -701,6 +702,29 @@ tbody tr:last-child td {
   color: var(--background);
 }
 
+.barres-mitjanes {
+  display: flex;
+  gap: 3px;
+}
+
+.espai-mitjana {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  align-items: flex-end;
+}
+
+.barra-mitjana {
+  flex: 1 1 auto;
+  height: 0;
+  transition: height 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.grafic-animat .barra-mitjana {
+  height: var(--altura-mitjana);
+}
+
 .etiqueta-barra {
   min-width: 0;
   margin-top: 8px;
@@ -766,6 +790,7 @@ tbody tr:last-child td {
   }
 
   .barra-apilada,
+  .barra-mitjana,
   .total-barra {
     transition: none;
   }

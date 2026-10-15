@@ -6,8 +6,8 @@
   <meta name="description" content="Rànquing i estadístiques de la competició de socis de Gaia Climb d’octubre de 2026.">
   <title>Gaia · Competició</title>
   <link rel="icon" type="image/svg+xml" href="Gaia.svg?v=1">
-  <link rel="stylesheet" href="styles.css?v=40">
-  <script src="script.js?v=22" defer></script>
+  <link rel="stylesheet" href="styles.css?v=41">
+  <script src="script.js?v=23" defer></script>
 </head>
 <body>
   <main>
@@ -95,8 +95,8 @@
           </p>
 
           <ul class="llegenda" aria-label="Llegenda del gràfic">
-            <li><span class="mostra mostra-zona" aria-hidden="true"></span>Zona</li>
             <li><span class="mostra mostra-top" aria-hidden="true"></span>Top</li>
+            <li><span class="mostra mostra-zona" aria-hidden="true"></span>Zona</li>
           </ul>
 
           <div class="area-grafic">
@@ -125,7 +125,7 @@
           <ul class="llegenda" aria-label="Llegenda del gràfic d’intents">
             <li><span class="mostra mostra-intents-top" aria-hidden="true"></span>Top</li>
             <li><span class="mostra mostra-intents-zona" aria-hidden="true"></span>Zona</li>
-            <li><span class="mostra mostra-intents-sense" aria-hidden="true"></span>Sense puntuació</li>
+            <li><span class="mostra mostra-intents-sense" aria-hidden="true"></span>No puntuat</li>
           </ul>
 
           <div class="area-grafic">
@@ -141,6 +141,35 @@
           <button id="grafic-intents-anterior" class="boto-fletxa" type="button" aria-label="Pàgina anterior del gràfic d’intents">‹</button>
           <span id="pagina-grafic-intents" class="indicador-pagina" aria-live="polite" aria-label="Pàgina 1 de 5">1/5</span>
           <button id="grafic-intents-seguent" class="boto-fletxa" type="button" aria-label="Pàgina següent del gràfic d’intents">›</button>
+        </nav>
+
+        <h4 id="titol-grafic-mitjana-intents" class="titol-grafic titol-grafic-intents">Mitja d’intents per bloc</h4>
+        <figure class="figura-grafic figura-grafic-intents" aria-labelledby="titol-grafic-mitjana-intents"
+          aria-describedby="descripcio-grafic-mitjana-intents estat-mitjana-intents">
+          <p id="estat-mitjana-intents" class="nota-grafic" role="status" hidden></p>
+          <p id="descripcio-grafic-mitjana-intents" class="visually-hidden">
+            Gràfic de barres agrupades amb la mitja d’intents entre els participants de cada resultat.
+          </p>
+
+          <ul class="llegenda" aria-label="Llegenda del gràfic de mitja d’intents">
+            <li><span class="mostra mostra-intents-top" aria-hidden="true"></span>Top</li>
+            <li><span class="mostra mostra-intents-zona" aria-hidden="true"></span>Zona</li>
+            <li><span class="mostra mostra-intents-sense" aria-hidden="true"></span>No puntuat</li>
+          </ul>
+
+          <div class="area-grafic">
+            <div class="escala" aria-hidden="true">
+              <span id="maxim-escala-mitjana-intents">0</span>
+              <span>0</span>
+            </div>
+            <div id="grafic-mitjana-intents" class="grafic" role="list" aria-label="Mitja d’intents per bloc"></div>
+          </div>
+        </figure>
+
+        <nav class="paginacio" aria-label="Paginació del gràfic de mitja d’intents">
+          <button id="grafic-mitjana-intents-anterior" class="boto-fletxa" type="button" aria-label="Pàgina anterior del gràfic de mitja d’intents">‹</button>
+          <span id="pagina-grafic-mitjana-intents" class="indicador-pagina" aria-live="polite" aria-label="Pàgina 1 de 5">1/5</span>
+          <button id="grafic-mitjana-intents-seguent" class="boto-fletxa" type="button" aria-label="Pàgina següent del gràfic de mitja d’intents">›</button>
         </nav>
       </section>
     </div>
