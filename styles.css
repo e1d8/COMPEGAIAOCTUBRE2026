@@ -397,10 +397,28 @@ tbody tr:last-child td {
   }
 }
 
+.titol-grafic {
+  color: var(--text);
+  margin: 0 0 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.nota-grafic {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
 .figura-grafic {
   margin: 0;
   padding: 12px;
   border: 1px solid var(--border);
+}
+
+.titol-grafic-intents {
+  margin-top: 48px;
 }
 
 .llegenda {
@@ -434,6 +452,50 @@ tbody tr:last-child td {
 .mostra-top,
 .segment-top {
   background: var(--top);
+}
+
+.mostra-intents-top,
+.segment-intents-top {
+  --color-segment: var(--guanyador-1);
+}
+
+.mostra-intents-zona,
+.segment-intents-zona {
+  --color-segment: var(--guanyador-2);
+}
+
+.mostra-intents-sense,
+.segment-intents-sense {
+  --color-segment: var(--guanyador-3);
+}
+
+.mostra-intents-top,
+.mostra-intents-zona,
+.mostra-intents-sense,
+.segment-intents-top,
+.segment-intents-zona,
+.segment-intents-sense {
+  background: var(--color-segment);
+  color: var(--text);
+}
+
+.segment-intents-top:is(:hover, :focus, .segment-actiu),
+.segment-intents-zona:is(:hover, :focus, .segment-actiu),
+.segment-intents-sense:is(:hover, :focus, .segment-actiu) {
+  background: color-mix(in srgb, var(--color-segment) 95%, black);
+}
+
+.figura-grafic-intents .valor-segment {
+  background: transparent;
+  color: var(--background);
+}
+
+.figura-grafic-intents .area-grafic {
+  grid-template-columns: max-content minmax(0, 1fr);
+}
+
+.figura-grafic-intents .escala {
+  min-width: 18px;
 }
 
 .area-grafic {

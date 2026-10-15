@@ -6,8 +6,8 @@
   <meta name="description" content="Rànquing i estadístiques de la competició de socis de Gaia Climb d’octubre de 2026.">
   <title>Gaia · Competició</title>
   <link rel="icon" type="image/svg+xml" href="Gaia.svg?v=1">
-  <link rel="stylesheet" href="styles.css?v=34">
-  <script src="script.js?v=19" defer></script>
+  <link rel="stylesheet" href="styles.css?v=40">
+  <script src="script.js?v=21" defer></script>
 </head>
 <body>
   <main>
@@ -88,7 +88,8 @@
           </div>
         </dl>
 
-        <figure class="figura-grafic" aria-label="Resultats per bloc" aria-describedby="descripcio-grafic">
+        <h4 id="titol-grafic" class="titol-grafic">Puntuació per bloc</h4>
+        <figure class="figura-grafic" aria-labelledby="titol-grafic" aria-describedby="descripcio-grafic">
           <p id="descripcio-grafic" class="visually-hidden">
             Gràfic de barres apilades amb la quantitat de zones i de tops.
           </p>
@@ -103,14 +104,43 @@
               <span id="maxim-escala">0</span>
               <span>0</span>
             </div>
-            <div id="grafic" class="grafic" role="list" aria-label="Resultats dels problemes"></div>
+            <div id="grafic" class="grafic" role="list" aria-label="Puntuació per bloc"></div>
           </div>
         </figure>
 
-        <nav class="paginacio" aria-label="Paginació del gràfic">
-          <button id="grafic-anterior" class="boto-fletxa" type="button" aria-label="Pàgina anterior del gràfic">‹</button>
+        <nav class="paginacio" aria-label="Paginació del gràfic de puntuació">
+          <button id="grafic-anterior" class="boto-fletxa" type="button" aria-label="Pàgina anterior del gràfic de puntuació">‹</button>
           <span id="pagina-grafic" class="indicador-pagina" aria-live="polite" aria-label="Pàgina 1 de 5">1/5</span>
-          <button id="grafic-seguent" class="boto-fletxa" type="button" aria-label="Pàgina següent del gràfic">›</button>
+          <button id="grafic-seguent" class="boto-fletxa" type="button" aria-label="Pàgina següent del gràfic de puntuació">›</button>
+        </nav>
+
+        <h4 id="titol-grafic-intents" class="titol-grafic titol-grafic-intents">Intents per bloc</h4>
+        <figure class="figura-grafic figura-grafic-intents" aria-labelledby="titol-grafic-intents"
+          aria-describedby="descripcio-grafic-intents estat-intents">
+          <p id="estat-intents" class="nota-grafic" role="status" hidden></p>
+          <p id="descripcio-grafic-intents" class="visually-hidden">
+            Gràfic de barres apilades amb la suma d’intents segons el resultat final de cada participant.
+          </p>
+
+          <ul class="llegenda" aria-label="Llegenda del gràfic d’intents">
+            <li><span class="mostra mostra-intents-top" aria-hidden="true"></span>Top</li>
+            <li><span class="mostra mostra-intents-zona" aria-hidden="true"></span>Zona</li>
+            <li><span class="mostra mostra-intents-sense" aria-hidden="true"></span>Sense puntuació</li>
+          </ul>
+
+          <div class="area-grafic">
+            <div class="escala" aria-hidden="true">
+              <span id="maxim-escala-intents">0</span>
+              <span>0</span>
+            </div>
+            <div id="grafic-intents" class="grafic" role="list" aria-label="Intents per bloc"></div>
+          </div>
+        </figure>
+
+        <nav class="paginacio" aria-label="Paginació del gràfic d’intents">
+          <button id="grafic-intents-anterior" class="boto-fletxa" type="button" aria-label="Pàgina anterior del gràfic d’intents">‹</button>
+          <span id="pagina-grafic-intents" class="indicador-pagina" aria-live="polite" aria-label="Pàgina 1 de 5">1/5</span>
+          <button id="grafic-intents-seguent" class="boto-fletxa" type="button" aria-label="Pàgina següent del gràfic d’intents">›</button>
         </nav>
       </section>
     </div>

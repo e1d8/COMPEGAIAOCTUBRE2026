@@ -45,14 +45,29 @@ const elements = {
   etiquetaParticipants: document.getElementById('etiqueta-participants'),
   puntuacioMitjana: document.getElementById('puntuacio-mitjana'),
   etiquetaMitjana: document.getElementById('etiqueta-mitjana'),
-  maximEscala: document.getElementById('maxim-escala'),
-  grafic: document.getElementById('grafic'),
-  descripcioGrafic: document.getElementById('descripcio-grafic'),
-  paginaGrafic: document.getElementById('pagina-grafic'),
-  graficAnterior: document.getElementById('grafic-anterior'),
-  graficSeguent: document.getElementById('grafic-seguent'),
   anunciCanvis: document.getElementById('anunci-canvis')
 };
+
+function creaEstatGrafic(sufix, titol, unitat) {
+  return {
+    titol, unitat,
+    esIntents: sufix === '-intents',
+    pagina: 0,
+    versioAnimacio: 0,
+    observador: null,
+    visible: false,
+    grafic: document.getElementById(`grafic${sufix}`),
+    maximEscala: document.getElementById(`maxim-escala${sufix}`),
+    descripcio: document.getElementById(`descripcio-grafic${sufix}`),
+    indicador: document.getElementById(`pagina-grafic${sufix}`),
+    anterior: document.getElementById(`grafic${sufix}-anterior`),
+    seguent: document.getElementById(`grafic${sufix}-seguent`)
+  };
+}
+
+const graficPuntuacio = creaEstatGrafic('', 'Puntuació per bloc', 'participants');
+const graficIntents = creaEstatGrafic('-intents', 'Intents per bloc', 'intents');
+const grafics = [graficPuntuacio, graficIntents];
 
 const formatEnter = new Intl.NumberFormat('ca-ES', { maximumFractionDigits: 0 });
 const ordenaNoms = new Intl.Collator('ca-ES', { sensitivity: 'base', numeric: true });
@@ -62,12 +77,8 @@ let firebaseClientPromise = null;
 let carregant = false;
 let categoriaActual = 'General';
 let paginaRanquingActual = 0;
-let paginaGraficActual = 0;
 let versioAnimacioEstadistiques = 0;
 let observadorEstadistiques = null;
-let versioAnimacioGrafic = 0;
-let observadorGrafic = null;
-let graficVisible = false;
 let versioAnimacioRanquing = 0;
 
 function normalitzaResultat(fila) {
@@ -77,6 +88,11 @@ function normalitzaResultat(fila) {
     anonimo: fila.anonimo === true,
     nombre: String(fila.nombre ?? ''),
     genero: String(fila.genero ?? ''),
+    // Un valor desconegut no és zero: no l’incloem en la suma d’intents.
+    intentos: Array.from({ length: PROBLEMES.length }, (_, index) => {
+      const valor = Array.isArray(fila.intentos) ? fila.intentos[index] : null;
+      return Number.isInteger(valor) && valor >= 0 && valor <= 5 ? valor : null;
+    }),
     total: Number(fila.total) || 0
   };
   for (const problema of PROBLEMES) {
@@ -307,33 +323,57 @@ function calculaProblema(problema) {
   return { ...problema, zones, tops, total: zones + tops };
 }
 
-function animaBarresGrafic() {
-  versioAnimacioGrafic += 1;
-  const versio = versioAnimacioGrafic;
-  elements.grafic.classList.remove('grafic-animat');
+function calculaIntentsProblema(problema, index) {
+  let zones = 0;
+  let tops = 0;
+  let sensePuntuacio = 0;
+  for (const resultat of resultats) {
+    const intents = resultat.intentos[index];
+    if (intents === null) continue;
+    const puntuacio = resultat[problema.camp];
+    if (puntuacio === problema.top) tops += intents;
+    else if (puntuacio === problema.zona) zones += intents;
+    else if (puntuacio === 0) sensePuntuacio += intents;
+  }
+  return { ...problema, zones, tops, sensePuntuacio, total: zones + tops + sensePuntuacio };
+}
+
+function actualitzaEstatIntents() {
+  const estat = document.getElementById('estat-intents');
+  const disponibles = resultats.reduce((total, resultat) =>
+    total + resultat.intentos.filter(valor => valor !== null).length, 0);
+  estat.textContent = disponibles === 0
+    ? 'Encara no hi ha dades d’intents.'
+    : '';
+  estat.hidden = !estat.textContent;
+}
+
+function animaBarresGrafic(estat) {
+  estat.versioAnimacio += 1;
+  const versio = estat.versioAnimacio;
+  estat.grafic.classList.remove('grafic-animat');
 
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      if (versio === versioAnimacioGrafic) {
-        elements.grafic.classList.add('grafic-animat');
+      if (versio === estat.versioAnimacio) {
+        estat.grafic.classList.add('grafic-animat');
       }
     });
   });
 }
 
-function preparaAnimacioInicialGrafic() {
-  versioAnimacioGrafic += 1;
-  graficVisible = false;
-  elements.grafic.classList.remove('grafic-animat');
-
-  if (observadorGrafic) {
-    observadorGrafic.disconnect();
-    observadorGrafic = null;
+function preparaAnimacioInicialGrafic(estat) {
+  estat.versioAnimacio += 1;
+  estat.visible = false;
+  estat.grafic.classList.remove('grafic-animat');
+  if (estat.observador) {
+    estat.observador.disconnect();
+    estat.observador = null;
   }
 
   function iniciaAnimacio() {
-    graficVisible = true;
-    animaBarresGrafic();
+    estat.visible = true;
+    animaBarresGrafic(estat);
   }
 
   if (!('IntersectionObserver' in window)) {
@@ -344,20 +384,22 @@ function preparaAnimacioInicialGrafic() {
   const observador = new IntersectionObserver(entrades => {
     if (!entrades.some(entrada => entrada.isIntersecting)) return;
     observador.disconnect();
-    if (observadorGrafic === observador) observadorGrafic = null;
+    if (estat.observador === observador) estat.observador = null;
     iniciaAnimacio();
   }, { threshold: 0.9 });
-  observadorGrafic = observador;
-  observador.observe(elements.grafic);
+  estat.observador = observador;
+  observador.observe(estat.grafic);
 }
 
-function creaBarra(dades, maxim) {
+function creaBarra(dades, maxim, esIntents = false) {
   const item = document.createElement('div');
   item.className = 'barra-item';
   item.setAttribute('role', 'listitem');
   item.setAttribute(
     'aria-label',
-    `${dades.etiqueta}: ${dades.zones} en zona, ${dades.tops} en top, ${dades.total} en total.`
+    esIntents
+      ? `${dades.etiqueta}: intents mínims registrats. Top: ${dades.tops}, Zona: ${dades.zones}, Sense puntuació: ${dades.sensePuntuacio}. Total: ${dades.total} intents.`
+      : `${dades.etiqueta}: ${dades.zones} en zona, ${dades.tops} en top, ${dades.total} en total.`
   );
 
   const area = document.createElement('div');
@@ -375,29 +417,24 @@ function creaBarra(dades, maxim) {
   const barra = document.createElement('div');
   barra.className = 'barra-apilada';
 
-  if (dades.tops > 0) {
-    const segmentTop = document.createElement('button');
-    segmentTop.type = 'button';
-    segmentTop.className = 'segment segment-top';
-    segmentTop.style.flexGrow = String(dades.tops);
-    segmentTop.setAttribute('aria-label', `${dades.etiqueta}, Top: ${dades.tops}`);
-    const valorTop = document.createElement('span');
-    valorTop.className = 'valor-segment';
-    valorTop.textContent = String(dades.tops);
-    segmentTop.append(valorTop);
-    barra.append(segmentTop);
-  }
-  if (dades.zones > 0) {
-    const segmentZona = document.createElement('button');
-    segmentZona.type = 'button';
-    segmentZona.className = 'segment segment-zona';
-    segmentZona.style.flexGrow = String(dades.zones);
-    segmentZona.setAttribute('aria-label', `${dades.etiqueta}, Zona: ${dades.zones}`);
-    const valorZona = document.createElement('span');
-    valorZona.className = 'valor-segment';
-    valorZona.textContent = String(dades.zones);
-    segmentZona.append(valorZona);
-    barra.append(segmentZona);
+  const segments = [
+    { nom: 'Top', classe: 'top', valor: dades.tops },
+    { nom: 'Zona', classe: 'zona', valor: dades.zones }
+  ];
+  if (esIntents) segments.push({ nom: 'Sense puntuació', classe: 'sense', valor: dades.sensePuntuacio });
+  for (const dadesSegment of segments) {
+    if (dadesSegment.valor === 0) continue;
+    const segment = document.createElement('button');
+    segment.type = 'button';
+    segment.className = `segment segment-${esIntents ? 'intents-' : ''}${dadesSegment.classe}`;
+    segment.style.flexGrow = String(dadesSegment.valor);
+    segment.setAttribute('aria-label',
+      `${dades.etiqueta}, ${dadesSegment.nom}: ${dadesSegment.valor}${esIntents ? ' intents mínims registrats' : ''}`);
+    const valor = document.createElement('span');
+    valor.className = 'valor-segment';
+    valor.textContent = String(dadesSegment.valor);
+    segment.append(valor);
+    barra.append(segment);
   }
 
   escala.append(total, barra);
@@ -411,28 +448,26 @@ function creaBarra(dades, maxim) {
   return item;
 }
 
-function renderitzaGrafic(anuncia = false) {
-  const problemes = PAGINES_GRAFIC[paginaGraficActual];
-  const maxim = resultats.length;
-  elements.grafic.replaceChildren(...problemes.map(problema => creaBarra(calculaProblema(problema), maxim)));
-  elements.maximEscala.textContent = String(maxim);
-  elements.paginaGrafic.textContent = `${paginaGraficActual + 1}/${PAGINES_GRAFIC.length}`;
-  elements.paginaGrafic.setAttribute(
-    'aria-label',
-    `Pàgina ${paginaGraficActual + 1} de ${PAGINES_GRAFIC.length}`
-  );
-  elements.graficAnterior.disabled = paginaGraficActual === 0;
-  elements.graficSeguent.disabled = paginaGraficActual === PAGINES_GRAFIC.length - 1;
-  elements.descripcioGrafic.textContent =
-    `Gràfic de barres apilades, amb una escala comuna de 0 a ${maxim} participants. ` +
-    `Pàgina ${paginaGraficActual + 1} de ${PAGINES_GRAFIC.length}.`;
+function renderitzaGrafic(anuncia = false, estat = graficPuntuacio) {
+  const dades = PROBLEMES.map((problema, index) => estat.esIntents
+    ? calculaIntentsProblema(problema, index) : calculaProblema(problema));
+  const maxim = estat.esIntents ? Math.max(0, ...dades.map(bloc => bloc.total)) : resultats.length;
+  const pagina = dades.slice(estat.pagina * 4, estat.pagina * 4 + 4);
+  estat.grafic.replaceChildren(...pagina.map(bloc => creaBarra(bloc, maxim, estat.esIntents)));
+  estat.maximEscala.textContent = String(maxim);
+  estat.indicador.textContent = `${estat.pagina + 1}/${PAGINES_GRAFIC.length}`;
+  estat.indicador.setAttribute('aria-label', `Pàgina ${estat.pagina + 1} de ${PAGINES_GRAFIC.length}`);
+  estat.anterior.disabled = estat.pagina === 0;
+  estat.seguent.disabled = estat.pagina === PAGINES_GRAFIC.length - 1;
+  estat.descripcio.textContent =
+    `Gràfic de barres apilades, amb una escala comuna de 0 a ${maxim} ${estat.unitat}. ` +
+    `Pàgina ${estat.pagina + 1} de ${PAGINES_GRAFIC.length}.`;
 
   if (anuncia) {
     elements.anunciCanvis.textContent =
-      `Gràfic. Pàgina ${paginaGraficActual + 1} de ${PAGINES_GRAFIC.length}.`;
+      `${estat.titol}. Pàgina ${estat.pagina + 1} de ${PAGINES_GRAFIC.length}.`;
   }
-
-  if (graficVisible) animaBarresGrafic();
+  if (estat.visible) animaBarresGrafic(estat);
 }
 
 function animaNumero(element, valorFinal, versio) {
@@ -516,8 +551,11 @@ function renderitzaEstadistiques() {
   const suma = resultats.reduce((acumulat, resultat) => acumulat + resultat.total, 0);
   const mitjana = total > 0 ? Math.round(suma / total) : 0;
   preparaAnimacioEstadistiques(total, mitjana);
-  preparaAnimacioInicialGrafic();
-  renderitzaGrafic();
+  actualitzaEstatIntents();
+  for (const estat of grafics) {
+    preparaAnimacioInicialGrafic(estat);
+    renderitzaGrafic(false, estat);
+  }
 }
 
 function renderitzaTot() {
@@ -571,7 +609,7 @@ async function carrega() {
   try {
     resultats = await lligResultats();
     paginaRanquingActual = 0;
-    paginaGraficActual = 0;
+    for (const estat of grafics) estat.pagina = 0;
     renderitzaTot();
     elements.estatCarrega.hidden = true;
     elements.estatCarrega.removeAttribute('aria-busy');
@@ -614,29 +652,29 @@ elements.ranquingSeguent.addEventListener('click', () => {
   }
 });
 
-elements.graficAnterior.addEventListener('click', () => {
-  if (paginaGraficActual > 0) {
-    paginaGraficActual -= 1;
-    renderitzaGrafic(true);
-  }
-});
-
-elements.graficSeguent.addEventListener('click', () => {
-  if (paginaGraficActual < PAGINES_GRAFIC.length - 1) {
-    paginaGraficActual += 1;
-    renderitzaGrafic(true);
-  }
-});
-
-elements.grafic.addEventListener('click', event => {
-  const segment = event.target.closest('.segment');
-  if (!segment) return;
-  const jaEstavaActiu = segment.classList.contains('segment-actiu');
-  for (const segmentActiu of elements.grafic.querySelectorAll('.segment-actiu')) {
-    segmentActiu.classList.remove('segment-actiu');
-  }
-  if (!jaEstavaActiu) segment.classList.add('segment-actiu');
-});
+for (const estat of grafics) {
+  estat.anterior.addEventListener('click', () => {
+    if (estat.pagina > 0) {
+      estat.pagina -= 1;
+      renderitzaGrafic(true, estat);
+    }
+  });
+  estat.seguent.addEventListener('click', () => {
+    if (estat.pagina < PAGINES_GRAFIC.length - 1) {
+      estat.pagina += 1;
+      renderitzaGrafic(true, estat);
+    }
+  });
+  estat.grafic.addEventListener('click', event => {
+    const segment = event.target.closest('.segment');
+    if (!segment) return;
+    const jaEstavaActiu = segment.classList.contains('segment-actiu');
+    for (const segmentActiu of estat.grafic.querySelectorAll('.segment-actiu')) {
+      segmentActiu.classList.remove('segment-actiu');
+    }
+    if (!jaEstavaActiu) segment.classList.add('segment-actiu');
+  });
+}
 
 elements.reintentar.addEventListener('click', carrega);
 
