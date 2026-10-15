@@ -91,7 +91,7 @@ function normalitzaResultat(fila) {
     // Un valor desconegut no és zero: no l’incloem en la suma d’intents.
     intentos: Array.from({ length: PROBLEMES.length }, (_, index) => {
       const valor = Array.isArray(fila.intentos) ? fila.intentos[index] : null;
-      return Number.isInteger(valor) && valor >= 0 && valor <= 5 ? valor : null;
+      return Number.isInteger(valor) && valor >= 0 && valor <= 99 ? valor : null;
     }),
     total: Number(fila.total) || 0
   };

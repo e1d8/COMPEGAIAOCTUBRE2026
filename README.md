@@ -13,7 +13,7 @@ Web estàtica en valencià amb el rànquing i les estadístiques de les particip
 - Les persones amb zero punts apareixen al rànquing i compten en el total i en la mitjana. El rànquing mostra cinc participants per pàgina.
 - **Puntuació per bloc** mostra la quantitat de participants amb zona sense top o amb top.
 - **Intents per bloc** suma els intents segons el resultat final: Top (verd de primera posició), Zona (segona) o Sense puntuació (tercera). Per exemple, dos tops de 2 i 3 intents aporten 5 al segment Top. Les participacions amb zero intents aporten zero, sense inferir-ne cap altre valor.
-- `intentos[0]` correspon al bloc 1 i `intentos[16]` al bloc 17. `4+` compta com un mínim de 4 intents; el valor antic `5+` compta com un mínim de 5. Per això, el gràfic informa dels mínims registrats.
+- `intentos[0]` correspon al bloc 1 i `intentos[16]` al bloc 17. El formulari envia ara números exactes de 0 a 99. Es conserven els valors antics: `4+` aporta un mínim de 4 intents i `5+` un mínim de 5. No és possible recuperar el número exacte d’eixes participacions antigues.
 - Els intents absents o invàlids s’exclouen de la suma. Les participacions continuen comptant en el rànquing, la mitjana i el gràfic de puntuació. Si encara no hi ha cap dada d’intents, apareix un missatge específic; els zeros vàlids sí que es consideren dades.
 - Cada gràfic té paginació independent amb cinc pàgines: `4 + 4 + 4 + 4 + 1`. L’escala és comuna a totes les pàgines de cada gràfic: participants per al primer i màxim de la suma d’intents dels 17 blocs per al segon. Els dos usen totes les categories, independentment de la pestanya del rànquing.
 
@@ -25,8 +25,8 @@ El bloc `firebaseConfig` del principi de `script.js` ja correspon al projecte i 
 
 1. Obri [Firebase](https://console.firebase.google.com/) i selecciona **`compe-gaia-octubre-2026`**.
 2. Comprova en **Firestore Database → Dades** que la base **`(default)`** conté la col·lecció `resultados`. Si encara no existix la col·lecció, apareixerà després del primer enviament vàlid del formulari.
-3. En **Regles**, publica el fitxer `firestore.rules` del projecte **FormulariCompeGaia** si encara no ho has fet. Les mateixes regles ja permeten la lectura pública de `resultados`: no cal canviar-les ni publicar regles obertes.
-4. Publica esta web en GitHub Pages i comprova les participacions.
+3. En **Regles**, publica la versió actual del fitxer `firestore.rules` del projecte **FormulariCompeGaia**, que admet intents de 0 a 99. Les mateixes regles permeten la lectura pública de `resultados`, sense permisos addicionals ni regles obertes.
+4. Per al comptador d’intents 0–99, publica primer les regles ampliades del formulari, després esta web en GitHub Pages i finalment el formulari. Les regles antigues només admeten fins a 5 intents. Comprova les participacions després de publicar.
 
 La configuració web és pública; els permisos els controlen les regles. Esta pàgina només consulta dades. No conté operacions de creació, actualització ni esborrat. [Configuració de Firebase](https://firebase.google.com/docs/web/setup), [lectura de documents](https://firebase.google.com/docs/firestore/query-data/get-data).
 
@@ -46,7 +46,7 @@ Comprova:
 - Rànquing general, Femení i Masculí; empats, noms llargs, zeros i més de cinc participants.
 - Total de participants i mitjana arrodonida, amb els anònims inclosos.
 - Recompte de zones i tops i sumes d’intents per resultat en les cinc pàgines de cada gràfic, amb el bloc 17 en l’última i paginació independent.
-- Intents zero, `4+`, valor antic `5+`, dades absents o invàlides, i escala comuna entre les pàgines.
+- Intents 0, 6, 25 i 99, valors antics `4+` i `5+`, dades absents o invàlides, i escala comuna entre les pàgines.
 - Navegació amb teclat i amplada mínima de 320 px.
 - Enviar un dorçal nou des del formulari i recarregar esta web: ha d’aparéixer en la categoria corresponent.
 - Reenviar el mateix dorçal amb altres puntuacions o en mode anònim: després de recarregar, ha de canviar la mateixa participació sense augmentar el recompte.
